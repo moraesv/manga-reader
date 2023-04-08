@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Manga Reader</title>
+	<style>
+		body {
+            box-sizing: border-box;
+			background-color: #292929;
+            font-family: 'Courier New', Courier, monospace;
+		}
+
+		h1 {
+			color: white;
+			text-align: center;
+			margin-top: 100px;
+		}
+
+		form {
+			max-width: 500px;
+			margin: 0 auto;
+			text-align: center;
+			margin-top: 50px;
+		}
+
+		label {
+			color: white;
+			display: block;
+			margin-bottom: 10px;
+		}
+
+		input {
+			width: 300px;
+			padding: 10px;
+			margin-bottom: 20px;
+			border: none;
+			border-radius: 5px;
+			background-color: #ddd;
+		}
+
+		input[type="button"] {
+			background-color: #4CAF50;
+			color: white;
+			cursor: pointer;
+            display: block;
+            margin: 0 auto;
+		}
+
+		input[type="button"]:hover {
+			background-color: #3e8e41;
+		}
+	</style>
+</head>
+<body>
+	<h1>Manga Reader</h1>
+	<form id="formManga" action="#">
+		<label for="id">Identificador do Manga:</label>
+		<input type="text" name="id" id="id">
+
+		<label for="capInicio">Capítulo Inicial:</label>
+		<input type="text" name="capInicio" id="capInicio">
+
+		<label for="capFim">Capítulo Final:</label>
+		<input type="text" name="capFim" id="capFim">
+
+		<input type="button" value="Baixar" onclick="enviarForm()">
+	</form>
+    <script>
+		function enviarForm() {
+			// Obter o formulário HTML
+			var form = document.getElementById("formManga");
+
+			// Serializar os dados do formulário em um objeto JSON
+			var formData = {
+				id: form.id.value,
+				capInicio: form.capInicio.value,
+				capFim: form.capFim.value
+			};
+
+			// Configurar a opção de solicitação
+			var options = {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify(formData)
+			};
+
+			// Enviar a solicitação usando o método fetch()
+			fetch("{{.UrlDownloadManga}}", options)
+				.then(response => {
+					if (response.ok) {
+                        return response.blob();
+					} else {
+						console.error("Erro ao enviar a solicitação!");
+					}
+				})
+                .then(blob => {
+                    // Criar uma URL temporária para o objeto Blob
+                    var url = URL.createObjectURL(blob);
+            
+                    // Abrir a URL em uma nova aba
+                    var novaAba = window.open(url, "_blank");
+                })
+				.catch(error => console.error(error));
+		}
+	</script>
+</body>
+</html>
+

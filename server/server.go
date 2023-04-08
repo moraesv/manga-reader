@@ -28,12 +28,8 @@ func (s *Server) IniciaServidor() {
 		AllowedOrigins: []string{"*"},
 	})
 
-	/* utilsLogger := utilsLogger.NewGenericLogger()
+	handler.NewPage(r)
 
-	pagamentosDiariosController := controllers.NewPagamentosDiariosController(pagamentosDiariosBusiness, utilsLogger)
-
-
-	handler.NewPagamentosDiarios(routes, pagamentosDiariosController) */
 	routes := r.PathPrefix("/api").Subrouter()
 	handler.NewHealth(routes)
 	handler.NewManga(routes)
