@@ -9,6 +9,7 @@ import (
 	"time"
 
 	handler "manga-reader/server/handlers"
+	"manga-reader/utils"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -20,6 +21,9 @@ type Server struct{}
 
 // IniciaServidor
 func (s *Server) IniciaServidor() {
+	vars := utils.InitVars()
+	uLogger := utils.NewGenericLogger()
+
 	r := mux.NewRouter()
 
 	c := cors.New(cors.Options{
@@ -28,21 +32,23 @@ func (s *Server) IniciaServidor() {
 		AllowedOrigins: []string{"*"},
 	})
 
-	handler.NewPage(r)
+	handler.NewPage(r, vars)
 
 	routes := r.PathPrefix("/api").Subrouter()
 	handler.NewHealth(routes)
-	handler.NewManga(routes)
+	handler.NewManga(routes, vars, uLogger)
 
 	router := mux.NewRouter()
 	router.Handle("/{_:.*}", r)
 
-	Url := os.Getenv("URL")
+	Url := vars.URL
+	MangaUrl := vars.MANGA_URL
+
 	if Url == "" {
 		Url = "http://localhost"
 	}
 
-	Port, _ := strconv.Atoi(os.Getenv("PORT"))
+	Port, _ := strconv.Atoi(vars.PORT)
 	if Port == 0 {
 		Port = 5000
 	}
@@ -54,7 +60,14 @@ func (s *Server) IniciaServidor() {
 		Handler:      handlers.RecoveryHandler()(c.Handler(router)),
 	}
 
-	log.Printf("Iniciando servidor: %s:%d", Url, Port)
+	if vars.ENVIRONMENT == "DEV" {
+		log.Printf("Iniciando servidor: %s:%d", Url, Port)
+
+	} else {
+		log.Printf("Iniciando servidor: %s", Url)
+	}
+
+	log.Printf("Utilizando: %s", MangaUrl)
 	if err := httpServer.ListenAndServe(); err != nil {
 		log.Println(err.Error())
 		os.Exit(1)

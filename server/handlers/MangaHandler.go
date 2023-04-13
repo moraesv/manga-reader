@@ -27,12 +27,20 @@ import (
 	"github.com/pixiv/go-libjpeg/jpeg"
 )
 
-func NewManga(e *mux.Router) {
-	s := e.PathPrefix("/").Subrouter()
-	s.HandleFunc("/manga", DownloadManga).Methods("POST")
+type MangaHandler struct {
+	vars    *models.Vars
+	uLogger utils.ILoggerUtils
 }
 
-func response(writer http.ResponseWriter, statusCode int, message string) {
+func NewManga(e *mux.Router, vars *models.Vars, uLogger utils.ILoggerUtils) {
+
+	handler := MangaHandler{vars, uLogger}
+
+	s := e.PathPrefix("/").Subrouter()
+	s.HandleFunc("/manga", handler.DownloadManga).Methods("POST")
+}
+
+func (m *MangaHandler) response(writer http.ResponseWriter, statusCode int, message string) {
 	writer.WriteHeader(500)
 	resp := make(map[string]string)
 	resp["message"] = message
@@ -40,72 +48,69 @@ func response(writer http.ResponseWriter, statusCode int, message string) {
 	writer.Write(jsonResp)
 }
 
-func DownloadManga(writer http.ResponseWriter, request *http.Request) {
-	utilsLogger := utils.NewGenericLogger()
-
+func (m *MangaHandler) DownloadManga(writer http.ResponseWriter, request *http.Request) {
 	uuidManga := uuid.New().String()
 
-	utilsLogger.LogIt("DEBUG", "Iniciado DownloadManga ID: "+uuidManga, nil)
+	m.uLogger.LogIt("DEBUG", "Iniciado DownloadManga ID: "+uuidManga, nil)
 
 	// Decodifica o corpo da requisição
 	var body models.BodyManga
 	err := json.NewDecoder(request.Body).Decode(&body)
 	if err != nil {
-		response(writer, http.StatusBadRequest, fmt.Sprintf("Erro ao decodificar JSON: %s", err.Error()))
+		m.response(writer, http.StatusBadRequest, fmt.Sprintf("Erro ao decodificar JSON: %s", err.Error()))
 		return
 	}
 
-	err = TestaConexao()
+	err = m.TestaConexao()
 	if err != nil {
-		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao TestaConexao ID: %s Error: %s", uuidManga, err.Error()), nil)
-		response(writer, http.StatusInternalServerError, err.Error())
+		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao TestaConexao ID: %s Error: %s", uuidManga, err.Error()), nil)
+		m.response(writer, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	uris, err := BuscaListaCapitulos(body.ID, body.CapInicio, body.CapFim)
+	uris, err := m.BuscaListaCapitulos(body.ID, body.CapInicio, body.CapFim)
 	if err != nil {
-		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao BuscaListaCapitulos ID: %s Error: %s", uuidManga, err.Error()), nil)
-		response(writer, http.StatusInternalServerError, err.Error())
+		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao BuscaListaCapitulos ID: %s Error: %s", uuidManga, err.Error()), nil)
+		m.response(writer, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	err = os.MkdirAll("./mangas/"+uuidManga, os.ModePerm)
 	if err != nil {
-		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao criar diretório ID: %s Error: %s", uuidManga, err.Error()), nil)
-		response(writer, http.StatusInternalServerError, err.Error())
+		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao criar diretório ID: %s Error: %s", uuidManga, err.Error()), nil)
+		m.response(writer, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	err = GerarManga(uuidManga, uris)
+	err = m.GerarManga(uuidManga, uris)
 	if err != nil {
-		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao GerarManga ID: %s Error: %s", uuidManga, err.Error()), nil)
-		response(writer, http.StatusInternalServerError, err.Error())
+		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao GerarManga ID: %s Error: %s", uuidManga, err.Error()), nil)
+		m.response(writer, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	http.ServeFile(writer, request, "./mangas/"+uuidManga+"/manga.pdf")
 
-	utilsLogger.LogIt("DEBUG", "PDF enviado", nil)
+	m.uLogger.LogIt("DEBUG", "PDF enviado", nil)
 
 	err = os.RemoveAll("./mangas/" + uuidManga)
 	if err != nil {
-		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao excluir diretório ID: %s Error: %s", uuidManga, err.Error()), nil)
+		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao excluir diretório ID: %s Error: %s", uuidManga, err.Error()), nil)
 		return
 	}
 }
 
-func GerarManga(uuidManga string, uris []string) error {
-	utilsLogger := utils.NewGenericLogger()
+func (m *MangaHandler) GerarManga(uuidManga string, uris []string) error {
 
-	utilsLogger.LogIt("DEBUG", "Iniciado Gerar Manga ID: "+uuidManga, nil)
+	m.uLogger.LogIt("DEBUG", "Iniciado Gerar Manga ID: "+uuidManga, nil)
 
 	count := 0
 
 	for _, uri := range uris {
-		utilsLogger.LogIt("DEBUG", fmt.Sprintf("Iniciado Gerar Manga ID: %s Capítulo %s", uuidManga, uri), nil)
+		m.uLogger.LogIt("DEBUG", fmt.Sprintf("Iniciado Gerar Manga ID: %s Capítulo %s", uuidManga, uri), nil)
 
 		// URL da página web que queremos acessar
-		url := os.Getenv("MANGA_URL") + uri
+		url := m.vars.MANGA_URL + uri
 
 		// Cria um contexto de execução para o navegador Chrome headless
 		ctx, cancel := chromedp.NewContext(context.Background())
@@ -121,7 +126,7 @@ func GerarManga(uuidManga string, uris []string) error {
 		})
 		if err != nil {
 			message := fmt.Sprintf("Erro ao navegar até a página web: %s", err.Error())
-			utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
 			return err
 		}
 
@@ -131,7 +136,7 @@ func GerarManga(uuidManga string, uris []string) error {
 			document, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 			if err != nil {
 				message := fmt.Sprintf("Erro ao parsear o HTML da página: %s", err.Error())
-				utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+				m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
 				return err
 			}
 			imageURL, _ := document.Find("div.reader-content div.manga-image img").First().Attr("src")
@@ -143,7 +148,7 @@ func GerarManga(uuidManga string, uris []string) error {
 				file, err := os.Create("./mangas/" + uuidManga + "/" + filename)
 				if err != nil {
 					message := fmt.Sprintf("Erro ao criar o arquivo: %s", err.Error())
-					utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+					m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
 					return err
 				}
 				defer file.Close()
@@ -151,7 +156,7 @@ func GerarManga(uuidManga string, uris []string) error {
 				response, err := http.Get(imageURL)
 				if err != nil {
 					message := fmt.Sprintf("Erro ao realizar o download da imagem: %s", err.Error())
-					utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+					m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
 					return err
 				}
 				defer response.Body.Close()
@@ -159,7 +164,7 @@ func GerarManga(uuidManga string, uris []string) error {
 				_, err = io.Copy(file, response.Body)
 				if err != nil {
 					message := fmt.Sprintf("Erro ao copiar o conteúdo da imagem para o arquivo:%s", err.Error())
-					utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+					m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
 					return err
 				}
 			}
@@ -173,7 +178,7 @@ func GerarManga(uuidManga string, uris []string) error {
 			})
 			if err != nil {
 				message := fmt.Sprintf("Erro ao clicar na div 'page-next': %s", err.Error())
-				utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+				m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
 				return err
 			}
 
@@ -181,7 +186,7 @@ func GerarManga(uuidManga string, uris []string) error {
 			document, err = goquery.NewDocumentFromReader(strings.NewReader(html))
 			if err != nil {
 				message := fmt.Sprintf("Erro ao parsear o HTML da página: %s", err.Error())
-				utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+				m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
 				return err
 			}
 			imageNextURL, _ := document.Find("div.reader-content div.manga-image img").First().Attr("src")
@@ -192,15 +197,14 @@ func GerarManga(uuidManga string, uris []string) error {
 		}
 	}
 
-	err := GerarPDF(uuidManga)
+	err := m.GerarPDF(uuidManga)
 
 	return err
 }
 
-func GerarPDF(uuidManga string) error {
-	utilsLogger := utils.NewGenericLogger()
+func (m *MangaHandler) GerarPDF(uuidManga string) error {
 
-	utilsLogger.LogIt("DEBUG", "Iniciado Gerar PDF ID: "+uuidManga, nil)
+	m.uLogger.LogIt("DEBUG", "Iniciado Gerar PDF ID: "+uuidManga, nil)
 	// Cria um novo PDF com orientação "P" (retrato)
 	pdf := gofpdf.New("P", "mm", "A4", "")
 
@@ -208,7 +212,7 @@ func GerarPDF(uuidManga string) error {
 	files, err := ioutil.ReadDir("./mangas/" + uuidManga)
 	if err != nil {
 		message := fmt.Sprintf("Erro ao encontrar ler diretório: %s", err.Error())
-		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar PDF ID: %s Error: %s", uuidManga, message), nil)
+		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar PDF ID: %s Error: %s", uuidManga, message), nil)
 		return err
 	}
 
@@ -228,7 +232,7 @@ func GerarPDF(uuidManga string) error {
 	// Percorre todos os arquivos e adiciona cada imagem ao PDF
 	for _, file := range files {
 		if filepath.Ext(file.Name()) == ".jpg" || filepath.Ext(file.Name()) == ".png" {
-			addImageToPDF(pdf, "./mangas/"+uuidManga+"/"+file.Name(), strings.Replace(filepath.Ext(file.Name()), ".", "", 1))
+			m.addImageToPDF(pdf, "./mangas/"+uuidManga+"/"+file.Name(), strings.Replace(filepath.Ext(file.Name()), ".", "", 1))
 		}
 	}
 
@@ -236,23 +240,22 @@ func GerarPDF(uuidManga string) error {
 	err = pdf.OutputFileAndClose("./mangas/" + uuidManga + "/" + "manga.pdf")
 	if err != nil {
 		message := fmt.Sprintf("Erro ao salvar pdf no diretório: %s", err.Error())
-		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar PDF ID: %s Error: %s", uuidManga, message), nil)
+		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar PDF ID: %s Error: %s", uuidManga, message), nil)
 		return err
 	}
 
 	return nil
 }
 
-func addImageToPDF(pdf *gofpdf.Fpdf, imagePath string, imageType string) error {
-	utilsLogger := utils.NewGenericLogger()
+func (m *MangaHandler) addImageToPDF(pdf *gofpdf.Fpdf, imagePath string, imageType string) error {
 
-	utilsLogger.LogIt("DEBUG", fmt.Sprintf("Iniciado addImageToPDF imagePath: %s ", imagePath), nil)
+	m.uLogger.LogIt("DEBUG", fmt.Sprintf("Iniciado addImageToPDF imagePath: %s ", imagePath), nil)
 
 	if imageType == "jpg" {
 		fileCheck, err := os.Open(imagePath)
 		if err != nil {
 			message := fmt.Sprintf("Erro ao abrir imagem no diretório: %s", err.Error())
-			utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF imagePath: %s Error: %s", imagePath, message), nil)
+			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF imagePath: %s Error: %s", imagePath, message), nil)
 			return err
 		}
 		defer fileCheck.Close()
@@ -262,14 +265,14 @@ func addImageToPDF(pdf *gofpdf.Fpdf, imagePath string, imageType string) error {
 			ScaleTarget: image.Rect(0, 0, 800, 800),
 		})
 		if err != nil {
-			utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF jpeg.Decode: %s Error: %s", imagePath, err.Error()), nil)
+			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF jpeg.Decode: %s Error: %s", imagePath, err.Error()), nil)
 			return nil
 		}
 
 		err = fileCheck.Close()
 		if err != nil {
 			message := fmt.Sprintf("Erro ao fechar imagem no diretório: %s", err.Error())
-			utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF imagePath: %s Error: %s", imagePath, message), nil)
+			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF imagePath: %s Error: %s", imagePath, message), nil)
 			return err
 		}
 	}
@@ -278,7 +281,7 @@ func addImageToPDF(pdf *gofpdf.Fpdf, imagePath string, imageType string) error {
 	file, err := os.Open(imagePath)
 	if err != nil {
 		message := fmt.Sprintf("Erro ao abrir imagem no diretório: %s", err.Error())
-		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF imagePath: %s Error: %s", imagePath, message), nil)
+		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF imagePath: %s Error: %s", imagePath, message), nil)
 		return err
 	}
 	defer file.Close()
@@ -298,16 +301,16 @@ func addImageToPDF(pdf *gofpdf.Fpdf, imagePath string, imageType string) error {
 	err = file.Close()
 	if err != nil {
 		message := fmt.Sprintf("Erro ao fechar imagem no diretório: %s", err.Error())
-		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF imagePath: %s Error: %s", imagePath, message), nil)
+		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF imagePath: %s Error: %s", imagePath, message), nil)
 		return err
 	}
 	return nil
 }
 
-func BuscaListaCapitulos(id string, capInicio string, capFim string) ([]string, error) {
-	utilsLogger := utils.NewGenericLogger()
+func (m *MangaHandler) BuscaListaCapitulos(id string, capInicio string, capFim string) ([]string, error) {
+	utils.NewGenericLogger()
 
-	utilsLogger.LogIt("DEBUG", "Iniciado BuscaListaCapitulos", nil)
+	m.uLogger.LogIt("DEBUG", "Iniciado BuscaListaCapitulos", nil)
 
 	var html string
 	var uris []string
@@ -319,13 +322,13 @@ func BuscaListaCapitulos(id string, capInicio string, capFim string) ([]string, 
 	ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 
-	url := os.Getenv("MANGA_URL") + "/manga/" + id
+	url := m.vars.MANGA_URL + "/manga/" + id
 
 	// Visita a página desejada
 	err := chromedp.Run(ctx, chromedp.Navigate(url))
 	if err != nil {
 		message := fmt.Sprintf("Erro ao iniciar chromedp: %s", err.Error())
-		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao BuscaListaCapitulos Error: %s", message), nil)
+		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao BuscaListaCapitulos Error: %s", message), nil)
 		return uris, err
 	}
 
@@ -344,14 +347,14 @@ func BuscaListaCapitulos(id string, capInicio string, capFim string) ([]string, 
 
 		if err != nil {
 			message := fmt.Sprintf("Erro ao rolar página em busca de capítulos: %s", err.Error())
-			utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao BuscaListaCapitulos  Error: %s", message), nil)
+			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao BuscaListaCapitulos  Error: %s", message), nil)
 			return uris, err
 		}
 
 		document, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 		if err != nil {
 			message := fmt.Sprintf("Erro ao parsear o HTML da página em busca de capítulos: %s", err.Error())
-			utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao BuscaListaCapitulos Error: %s", message), nil)
+			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao BuscaListaCapitulos Error: %s", message), nil)
 			return uris, err
 		}
 		title, _ := document.Find(fmt.Sprintf("li a[title='Ler Capítulo %s']", capInicio)).First().Attr("title")
@@ -368,7 +371,7 @@ func BuscaListaCapitulos(id string, capInicio string, capFim string) ([]string, 
 	document, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
 		message := fmt.Sprintf("Erro ao parsear o HTML da página em busca de uris: %s", err.Error())
-		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao BuscaListaCapitulos Error: %s", message), nil)
+		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao BuscaListaCapitulos Error: %s", message), nil)
 		return uris, err
 	}
 
@@ -396,10 +399,9 @@ func BuscaListaCapitulos(id string, capInicio string, capFim string) ([]string, 
 	return uris, nil
 }
 
-func TestaConexao() error {
-	utilsLogger := utils.NewGenericLogger()
+func (m *MangaHandler) TestaConexao() error {
 
-	url := os.Getenv("MANGA_URL")
+	url := m.vars.MANGA_URL
 	var res *http.Response
 
 	res, err := http.Head(url)
@@ -411,7 +413,7 @@ func TestaConexao() error {
 		return errors.New(fmt.Sprintf("Erro ao acessar a URL: %s\n", res.Status))
 	}
 
-	utilsLogger.LogIt("DEBUG", fmt.Sprintf("Teste Conexão URL: %s Status: %s", url, res.Status), nil)
+	m.uLogger.LogIt("DEBUG", fmt.Sprintf("Teste Conexão URL: %s Status: %s", url, res.Status), nil)
 
 	return nil
 }
