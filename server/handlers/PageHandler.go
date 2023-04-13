@@ -1,26 +1,32 @@
 package server
 
 import (
+	"manga-reader/models"
 	"net/http"
-	"os"
 	"text/template"
 
 	"github.com/gorilla/mux"
 )
+
+type PageHandler struct {
+	vars *models.Vars
+}
 
 type Modelo struct {
 	UrlDownloadManga string
 	UrlSiteManga     string
 }
 
-func NewPage(e *mux.Router) {
+func NewPage(e *mux.Router, vars *models.Vars) {
+	handler := PageHandler{vars}
+
 	s := e.PathPrefix("/").Subrouter()
-	s.HandleFunc("/", Index).Methods("GET")
+	s.HandleFunc("/", handler.Index).Methods("GET")
 }
 
-func Index(writer http.ResponseWriter, request *http.Request) {
-	UrlDownloadManga := os.Getenv("URL_DOWNLOAD_MANGA")
-	UrlSiteManga := os.Getenv("MANGA_URL")
+func (p *PageHandler) Index(writer http.ResponseWriter, request *http.Request) {
+	UrlDownloadManga := p.vars.URL_DOWNLOAD_MANGA
+	UrlSiteManga := p.vars.MANGA_URL
 
 	modelo := Modelo{UrlDownloadManga, UrlSiteManga}
 
