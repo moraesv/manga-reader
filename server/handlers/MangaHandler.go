@@ -54,6 +54,13 @@ func DownloadManga(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	err = TestaConexao()
+	if err != nil {
+		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao TestaConexao ID: %s Error: %s", uuidManga, err.Error()), nil)
+		response(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	uris, err := BuscaListaCapitulos(body.ID, body.CapInicio, body.CapFim)
 	if err != nil {
 		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao BuscaListaCapitulos ID: %s Error: %s", uuidManga, err.Error()), nil)
@@ -386,4 +393,10 @@ func BuscaListaCapitulos(id string, capInicio string, capFim string) ([]string, 
 	}
 
 	return uris, nil
+}
+
+func TestaConexao() error {
+	url := os.Getenv("MANGA_URL")
+	_, err := http.Head(url)
+	return err
 }
