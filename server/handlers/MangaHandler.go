@@ -400,7 +400,7 @@ func (m *MangaHandler) BuscaListaCapitulos(id string, capInicio string, capFim s
 }
 
 func (m *MangaHandler) TestaConexao() error {
-
+	m.uLogger.LogIt("DEBUG", fmt.Sprintf("Teste Conexão URL: %s", m.vars.MANGA_URL), nil)
 	url := m.vars.MANGA_URL
 	var res *http.Response
 
