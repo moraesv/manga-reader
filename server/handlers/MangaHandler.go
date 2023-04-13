@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"io"
@@ -396,7 +397,21 @@ func BuscaListaCapitulos(id string, capInicio string, capFim string) ([]string, 
 }
 
 func TestaConexao() error {
+	utilsLogger := utils.NewGenericLogger()
+
 	url := os.Getenv("MANGA_URL")
-	_, err := http.Head(url)
-	return err
+	var res *http.Response
+
+	res, err := http.Head(url)
+	if err != nil {
+		return err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return errors.New(fmt.Sprintf("Erro ao acessar a URL: %s\n", res.Status))
+	}
+
+	utilsLogger.LogIt("DEBUG", fmt.Sprintf("Teste Conexão URL: %s Status: %s", url, res.Status), nil)
+
+	return nil
 }
