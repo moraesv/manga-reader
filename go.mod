@@ -15,7 +15,7 @@ require (
 
 require (
 	github.com/andybalholm/cascadia v1.3.1 // indirect
-	github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9
+	github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9 // indirect
 	github.com/chromedp/chromedp v0.9.1
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
@@ -28,6 +28,7 @@ require (
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/labstack/gommon v0.4.0
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/pixiv/go-libjpeg v0.0.0-20190822045933-3da21a74767d
 	github.com/rs/cors v1.8.3
 	github.com/sirupsen/logrus v1.9.0
 	golang.org/x/net v0.7.0 // indirect

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
 	"io"
 	"io/ioutil"
 	"manga-reader/models"
@@ -22,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/jung-kurt/gofpdf"
+	"github.com/pixiv/go-libjpeg/jpeg"
 )
 
 func NewManga(e *mux.Router) {
@@ -59,7 +61,7 @@ func DownloadManga(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	err = os.Mkdir(uuidManga, 0755)
+	err = os.MkdirAll("./mangas/"+uuidManga, os.ModePerm)
 	if err != nil {
 		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao criar diretório ID: %s Error: %s", uuidManga, err.Error()), nil)
 		response(writer, http.StatusInternalServerError, err.Error())
@@ -73,11 +75,11 @@ func DownloadManga(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	http.ServeFile(writer, request, "./"+uuidManga+"/manga.pdf")
+	http.ServeFile(writer, request, "./mangas/"+uuidManga+"/manga.pdf")
 
 	utilsLogger.LogIt("DEBUG", "PDF enviado", nil)
 
-	err = os.RemoveAll("./" + uuidManga)
+	err = os.RemoveAll("./mangas/" + uuidManga)
 	if err != nil {
 		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao excluir diretório ID: %s Error: %s", uuidManga, err.Error()), nil)
 		return
@@ -130,7 +132,7 @@ func GerarManga(uuidManga string, uris []string) error {
 				count += 1
 				imageName := strings.Split(imageURL, "/")
 				filename := fmt.Sprintf("%d%s", count, filepath.Ext(imageName[len(imageName)-1]))
-				file, err := os.Create(uuidManga + "/" + filename)
+				file, err := os.Create("./mangas/" + uuidManga + "/" + filename)
 				if err != nil {
 					message := fmt.Sprintf("Erro ao criar o arquivo: %s", err.Error())
 					utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
@@ -195,7 +197,7 @@ func GerarPDF(uuidManga string) error {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 
 	// Obtém a lista de arquivos JPG no diretório
-	files, err := ioutil.ReadDir("./" + uuidManga)
+	files, err := ioutil.ReadDir("./mangas/" + uuidManga)
 	if err != nil {
 		message := fmt.Sprintf("Erro ao encontrar ler diretório: %s", err.Error())
 		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar PDF ID: %s Error: %s", uuidManga, message), nil)
@@ -218,18 +220,12 @@ func GerarPDF(uuidManga string) error {
 	// Percorre todos os arquivos e adiciona cada imagem ao PDF
 	for _, file := range files {
 		if filepath.Ext(file.Name()) == ".jpg" || filepath.Ext(file.Name()) == ".png" {
-			pdf.AddPage()
-			addImageToPDF(pdf, "./"+uuidManga+"/"+file.Name(), strings.Replace(filepath.Ext(file.Name()), ".", "", 1))
-		}
-		//err = os.Remove("./" + uuidManga + "/" + file.Name())
-		if err != nil {
-			message := fmt.Sprintf("Erro ao remover imagem no diretório: %s", err.Error())
-			utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar PDF ID: %s Error: %s", uuidManga, message), nil)
+			addImageToPDF(pdf, "./mangas/"+uuidManga+"/"+file.Name(), strings.Replace(filepath.Ext(file.Name()), ".", "", 1))
 		}
 	}
 
 	// Salva o PDF em um arquivo
-	err = pdf.OutputFileAndClose("./" + uuidManga + "/" + "manga.pdf")
+	err = pdf.OutputFileAndClose("./mangas/" + uuidManga + "/" + "manga.pdf")
 	if err != nil {
 		message := fmt.Sprintf("Erro ao salvar pdf no diretório: %s", err.Error())
 		utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar PDF ID: %s Error: %s", uuidManga, message), nil)
@@ -244,6 +240,32 @@ func addImageToPDF(pdf *gofpdf.Fpdf, imagePath string, imageType string) error {
 
 	utilsLogger.LogIt("DEBUG", fmt.Sprintf("Iniciado addImageToPDF imagePath: %s ", imagePath), nil)
 
+	if imageType == "jpg" {
+		fileCheck, err := os.Open(imagePath)
+		if err != nil {
+			message := fmt.Sprintf("Erro ao abrir imagem no diretório: %s", err.Error())
+			utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF imagePath: %s Error: %s", imagePath, message), nil)
+			return err
+		}
+		defer fileCheck.Close()
+
+		// Decode the image file using "go-libjpeg/jpeg"
+		_, err = jpeg.Decode(fileCheck, &jpeg.DecoderOptions{
+			ScaleTarget: image.Rect(0, 0, 800, 800),
+		})
+		if err != nil {
+			utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF jpeg.Decode: %s Error: %s", imagePath, err.Error()), nil)
+			return nil
+		}
+
+		err = fileCheck.Close()
+		if err != nil {
+			message := fmt.Sprintf("Erro ao fechar imagem no diretório: %s", err.Error())
+			utilsLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF imagePath: %s Error: %s", imagePath, message), nil)
+			return err
+		}
+	}
+
 	// Abre o arquivo de imagem
 	file, err := os.Open(imagePath)
 	if err != nil {
@@ -252,6 +274,8 @@ func addImageToPDF(pdf *gofpdf.Fpdf, imagePath string, imageType string) error {
 		return err
 	}
 	defer file.Close()
+
+	pdf.AddPage()
 
 	// Converte a imagem para um objeto de imagem PDF
 	imgRect := gofpdf.ImageOptions{
