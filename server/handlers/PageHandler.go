@@ -10,6 +10,7 @@ import (
 
 type Modelo struct {
 	UrlDownloadManga string
+	UrlSiteManga     string
 }
 
 func NewPage(e *mux.Router) {
@@ -19,8 +20,9 @@ func NewPage(e *mux.Router) {
 
 func Index(writer http.ResponseWriter, request *http.Request) {
 	UrlDownloadManga := os.Getenv("URL_DOWNLOAD_MANGA")
+	UrlSiteManga := os.Getenv("MANGA_URL")
 
-	modelo := Modelo{UrlDownloadManga}
+	modelo := Modelo{UrlDownloadManga, UrlSiteManga}
 
 	templateHTML, _ := template.ParseFiles("./index.html")
 
