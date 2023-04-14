@@ -82,14 +82,19 @@ func (m *MangaHandler) DownloadManga(writer http.ResponseWriter, request *http.R
 		return
 	}
 
-	err = m.GerarManga(uuidManga, uris)
+	pdf, err := m.GerarManga(uuidManga, uris)
 	if err != nil {
 		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao GerarManga ID: %s Error: %s", uuidManga, err.Error()), nil)
 		m.response(writer, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	http.ServeFile(writer, request, "./mangas/"+uuidManga+"/manga.pdf")
+	writer.Header().Set("Content-Disposition", "attachment")
+	writer.Header().Set("Content-Filename", "documento.pdf")
+	writer.Header().Set("Content-Type", "application/pdf")
+	writer.Header().Set("Content-Disposition", "attachment; filename=manga.pdf")
+
+	pdf.Output(writer)
 
 	m.uLogger.LogIt("DEBUG", "PDF enviado", nil)
 
@@ -100,7 +105,7 @@ func (m *MangaHandler) DownloadManga(writer http.ResponseWriter, request *http.R
 	}
 }
 
-func (m *MangaHandler) GerarManga(uuidManga string, uris []string) error {
+func (m *MangaHandler) GerarManga(uuidManga string, uris []string) (*gofpdf.Fpdf, error) {
 
 	m.uLogger.LogIt("DEBUG", "Iniciado Gerar Manga ID: "+uuidManga, nil)
 
@@ -127,7 +132,7 @@ func (m *MangaHandler) GerarManga(uuidManga string, uris []string) error {
 		if err != nil {
 			message := fmt.Sprintf("Erro ao navegar até a página web: %s", err.Error())
 			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-			return err
+			return nil, err
 		}
 
 		// Clica na div "page-next" e baixa a próxima imagem até que não exista mais uma imagem na tela
@@ -137,7 +142,7 @@ func (m *MangaHandler) GerarManga(uuidManga string, uris []string) error {
 			if err != nil {
 				message := fmt.Sprintf("Erro ao parsear o HTML da página: %s", err.Error())
 				m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-				return err
+				return nil, err
 			}
 			imageURL, _ := document.Find("div.reader-content div.manga-image img").First().Attr("src")
 
@@ -149,7 +154,7 @@ func (m *MangaHandler) GerarManga(uuidManga string, uris []string) error {
 				if err != nil {
 					message := fmt.Sprintf("Erro ao criar o arquivo: %s", err.Error())
 					m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-					return err
+					return nil, err
 				}
 				defer file.Close()
 
@@ -157,7 +162,7 @@ func (m *MangaHandler) GerarManga(uuidManga string, uris []string) error {
 				if err != nil {
 					message := fmt.Sprintf("Erro ao realizar o download da imagem: %s", err.Error())
 					m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-					return err
+					return nil, err
 				}
 				defer response.Body.Close()
 
@@ -165,7 +170,7 @@ func (m *MangaHandler) GerarManga(uuidManga string, uris []string) error {
 				if err != nil {
 					message := fmt.Sprintf("Erro ao copiar o conteúdo da imagem para o arquivo:%s", err.Error())
 					m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-					return err
+					return nil, err
 				}
 			}
 
@@ -179,7 +184,7 @@ func (m *MangaHandler) GerarManga(uuidManga string, uris []string) error {
 			if err != nil {
 				message := fmt.Sprintf("Erro ao clicar na div 'page-next': %s", err.Error())
 				m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-				return err
+				return nil, err
 			}
 
 			// Verifica se é mesma imagem
@@ -187,7 +192,7 @@ func (m *MangaHandler) GerarManga(uuidManga string, uris []string) error {
 			if err != nil {
 				message := fmt.Sprintf("Erro ao parsear o HTML da página: %s", err.Error())
 				m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-				return err
+				return nil, err
 			}
 			imageNextURL, _ := document.Find("div.reader-content div.manga-image img").First().Attr("src")
 
@@ -197,12 +202,12 @@ func (m *MangaHandler) GerarManga(uuidManga string, uris []string) error {
 		}
 	}
 
-	err := m.GerarPDF(uuidManga)
+	pdf, err := m.GerarPDF(uuidManga)
 
-	return err
+	return pdf, err
 }
 
-func (m *MangaHandler) GerarPDF(uuidManga string) error {
+func (m *MangaHandler) GerarPDF(uuidManga string) (*gofpdf.Fpdf, error) {
 
 	m.uLogger.LogIt("DEBUG", "Iniciado Gerar PDF ID: "+uuidManga, nil)
 	// Cria um novo PDF com orientação "P" (retrato)
@@ -213,7 +218,7 @@ func (m *MangaHandler) GerarPDF(uuidManga string) error {
 	if err != nil {
 		message := fmt.Sprintf("Erro ao encontrar ler diretório: %s", err.Error())
 		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar PDF ID: %s Error: %s", uuidManga, message), nil)
-		return err
+		return pdf, err
 	}
 
 	// Ordena os arquivos por ordem numérica crescente
@@ -236,15 +241,15 @@ func (m *MangaHandler) GerarPDF(uuidManga string) error {
 		}
 	}
 
-	// Salva o PDF em um arquivo
+	/* // Salva o PDF em um arquivo
 	err = pdf.OutputFileAndClose("./mangas/" + uuidManga + "/" + "manga.pdf")
 	if err != nil {
 		message := fmt.Sprintf("Erro ao salvar pdf no diretório: %s", err.Error())
 		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar PDF ID: %s Error: %s", uuidManga, message), nil)
-		return err
-	}
+		return pdf, err
+	} */
 
-	return nil
+	return pdf, nil
 }
 
 func (m *MangaHandler) addImageToPDF(pdf *gofpdf.Fpdf, imagePath string, imageType string) error {
