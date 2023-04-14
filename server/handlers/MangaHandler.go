@@ -441,7 +441,8 @@ func (m *MangaHandler) TestaConexao() error {
 
 	// Ignora as regras de segurança do Cloudflare
 	c.OnResponse(func(r *colly.Response) {
-		if r.StatusCode == 403 && string(r.Body) == "blocked by CloudFront" {
+		if r.StatusCode == 403 {
+			fmt.Println(r.Body)
 			r.Request.Retry()
 		}
 	})
