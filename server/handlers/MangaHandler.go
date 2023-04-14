@@ -402,12 +402,20 @@ func (m *MangaHandler) BuscaListaCapitulos(id string, capInicio string, capFim s
 func (m *MangaHandler) TestaConexao() error {
 	m.uLogger.LogIt("DEBUG", fmt.Sprintf("Teste Conexão URL: %s", m.vars.MANGA_URL), nil)
 	url := m.vars.MANGA_URL
-	var res *http.Response
 
-	res, err := http.Head(url)
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return err
+		return errors.New(fmt.Sprintf("Erro ao criar request URL: %s Error: %s", url, err.Error()))
 	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148")
+
+	res, err := client.Do(req)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Erro ao request URL: %s Error: %s", url, err.Error()))
+	}
+
+	fmt.Println(res.Request.Header)
 
 	if res.StatusCode != http.StatusOK {
 		return errors.New(fmt.Sprintf("Erro ao acessar a URL: %s\n", res.Status))
