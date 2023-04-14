@@ -14,6 +14,9 @@ func InitVars() *models.Vars {
 		LOGRUS_LOG_LEVEL:   os.Getenv("LOGRUS_LOG_LEVEL"),
 		MANGA_URL:          os.Getenv("MANGA_URL"),
 		URL_DOWNLOAD_MANGA: os.Getenv("URL_DOWNLOAD_MANGA"),
+		URL_REDIRECT:       os.Getenv("URL_REDIRECT"),
+		PORT_REDIRECT:      os.Getenv("PORT_REDIRECT"),
+		URL_REDIRECT_FULL:  os.Getenv("URL_REDIRECT_FULL"),
 	}
 
 	return &v

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"log"
 	"net/http"
@@ -61,9 +62,32 @@ func (s *Server) IniciaServidor() {
 	vars.URL = tun.URL()
 	vars.URL_DOWNLOAD_MANGA = vars.URL + "/api/manga"
 
+	SalvaNovaURL(vars.URL_REDIRECT_FULL, vars.URL)
+
 	log.Printf("Utilizando: %s", vars.MANGA_URL)
 
 	log.Printf("Iniciando servidor: %s", vars.URL)
 
 	http.Serve(tun, handlers.RecoveryHandler()(c.Handler(router)))
+}
+
+func SalvaNovaURL(urlRedirect, urlNgrok string) {
+	url := urlRedirect + "/url"
+	body := []byte(urlNgrok)
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(body))
+	if err != nil {
+		log.Printf("Erro ao criar a requisição: %s", err.Error())
+		return
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Erro ao enviar a requisição: %s", err.Error())
+		return
+	}
+	defer resp.Body.Close()
+
+	log.Printf("Resposta do servidor: %s", resp.Status)
 }

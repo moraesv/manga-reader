@@ -13,6 +13,12 @@ Para gerar a imagem é preciso acessar a pasta raiz do projeto e executar o coma
 Para executar o container:
 `docker run --env-file .env -p 9003:9003 --name manga-reader manga-reader`
 
+Para gerar a imagem do redirect é preciso acessar a pasta raiz do projeto e executar o comando:
+`docker build -f DockerfileRedirect -t manga-reader-redirect .`
+
+Para executar o container:
+`docker run --env-file .env -p 9004:9004 --name manga-reader-redirect manga-reader-redirect`
+
 ### bashrc para start.sh
 
 chmod +x /home/vinicius/projetos/go/src/github.com/pessoal/manga-reader/start.sh
