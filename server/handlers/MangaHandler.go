@@ -421,7 +421,7 @@ func (m *MangaHandler) TestaConexao() error {
 	req.Header.Set("Sec-Fetch-User", `?1`)
 	req.Header.Set("Sec-Fetch-Dest", `document`)
 	req.Header.Set("Accept-Encoding", `gzip, deflate, br`)
-	req.Header.Set("Accept-Language", `en-GB,en-US;q=0.9,en;q=0.8`)
+	req.Header.Set("Accept-Language", `pt-BR`)
 	res, err := client.Do(req)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Erro ao request URL: %s Error: %s", url, err.Error()))
