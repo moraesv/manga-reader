@@ -428,6 +428,7 @@ func (m *MangaHandler) TestaConexao() error {
 	}
 
 	fmt.Println(res.Request.Header)
+	fmt.Println(res.Header)
 
 	if res.StatusCode != http.StatusOK {
 		return errors.New(fmt.Sprintf("Erro ao acessar a URL: %s\n", res.Status))
