@@ -1,12 +1,11 @@
 package server
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
-	"time"
 
 	handler "manga-reader/server/handlers"
 	"manga-reader/utils"
@@ -14,6 +13,9 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
+
+	"golang.ngrok.com/ngrok"
+	"golang.ngrok.com/ngrok/config"
 )
 
 // Server é o struct que define o server
@@ -41,35 +43,27 @@ func (s *Server) IniciaServidor() {
 	router := mux.NewRouter()
 	router.Handle("/{_:.*}", r)
 
-	Url := vars.URL
-	MangaUrl := vars.MANGA_URL
-
-	if Url == "" {
-		Url = "http://localhost"
-	}
-
 	Port, _ := strconv.Atoi(vars.PORT)
 	if Port == 0 {
 		Port = 9003
 	}
 
-	httpServer := &http.Server{
-		Addr:         fmt.Sprintf(":%d", Port),
-		ReadTimeout:  5 * time.Minute,
-		WriteTimeout: 5 * time.Minute,
-		Handler:      handlers.RecoveryHandler()(c.Handler(router)),
-	}
-
-	if vars.ENVIRONMENT == "DEV" {
-		log.Printf("Iniciando servidor: %s:%d", Url, Port)
-
-	} else {
-		log.Printf("Iniciando servidor: %s", Url)
-	}
-
-	log.Printf("Utilizando: %s", MangaUrl)
-	if err := httpServer.ListenAndServe(); err != nil {
+	ctx := context.Background()
+	tun, err := ngrok.Listen(ctx,
+		config.HTTPEndpoint(),
+		ngrok.WithAuthtokenFromEnv(),
+	)
+	if err != nil {
 		log.Println(err.Error())
 		os.Exit(1)
 	}
+
+	vars.URL = tun.URL()
+	vars.URL_DOWNLOAD_MANGA = vars.URL + "/api/manga"
+
+	log.Printf("Utilizando: %s", vars.MANGA_URL)
+
+	log.Printf("Iniciando servidor: %s", vars.URL)
+
+	http.Serve(tun, handlers.RecoveryHandler()(c.Handler(router)))
 }

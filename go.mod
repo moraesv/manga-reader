@@ -9,8 +9,15 @@ require (
 
 require (
 	github.com/felixge/httpsnoop v1.0.1 // indirect
-	github.com/mattn/go-colorable v0.1.11 // indirect
-	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/go-stack/stack v1.8.1 // indirect
+	github.com/inconshreveable/log15 v3.0.0-testing.3+incompatible // indirect
+	github.com/inconshreveable/log15/v3 v3.0.0-testing.5 // indirect
+	github.com/jpillora/backoff v1.0.0 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.16 // indirect
+	golang.ngrok.com/ngrok v1.0.0 // indirect
+	golang.org/x/term v0.5.0 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 )
 
 require (

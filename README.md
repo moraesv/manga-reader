@@ -12,3 +12,8 @@ Para gerar a imagem é preciso acessar a pasta raiz do projeto e executar o coma
 
 Para executar o container:
 `docker run --env-file .env -p 9003:9003 --name manga-reader manga-reader`
+
+### bashrc para start.sh
+
+chmod +x /home/vinicius/projetos/go/src/github.com/pessoal/manga-reader/start.sh
+alias manga=". /home/vinicius/projetos/go/src/github.com/pessoal/manga-reader/start.sh"

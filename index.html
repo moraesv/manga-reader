@@ -7,12 +7,17 @@
         box-sizing: border-box;
         background-color: #292929;
         font-family: "Courier New", Courier, monospace;
+        font-size: 2rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
       }
 
       h1 {
         color: white;
         text-align: center;
-        margin-top: 100px;
+        margin-top: 150px;
       }
 
       a {
@@ -22,7 +27,7 @@
       }
 
       form {
-        max-width: 500px;
+        width: 80%;
         margin: 0 auto;
         text-align: center;
         margin-top: 50px;
@@ -35,12 +40,13 @@
       }
 
       input {
-        width: 300px;
+        width: 90%;
         padding: 10px;
         margin-bottom: 20px;
         border: none;
         border-radius: 5px;
         background-color: #ddd;
+        font-size: 2rem;
       }
 
       input[type="button"] {
@@ -49,10 +55,15 @@
         cursor: pointer;
         display: block;
         margin: 0 auto;
+        width: 80%;
       }
 
       input[type="button"]:hover {
         background-color: #3e8e41;
+      }
+
+      input[type="button"]:disabled {
+        background-color: #4b4e4b;
       }
     </style>
   </head>
@@ -69,7 +80,12 @@
       <label for="capFim">Capítulo Final:</label>
       <input type="text" name="capFim" id="capFim" />
 
-      <input type="button" value="Baixar" onclick="enviarForm()" />
+      <input
+        id="btnBaixar"
+        type="button"
+        value="Baixar"
+        onclick="enviarForm()"
+      />
     </form>
     <script>
       function enviarForm() {
@@ -82,6 +98,15 @@
           capInicio: form.capInicio.value,
           capFim: form.capFim.value,
         };
+
+        if (!formData.id || !formData.capInicio || !formData.capFim) {
+          alert("É preciso preencher todos os campos!");
+          return;
+        }
+
+        var btnBaixar = document.getElementById("btnBaixar");
+        btnBaixar.disabled = true;
+        btnBaixar.value = "Baixando...";
 
         // Configurar a opção de solicitação
         var options = {
@@ -97,21 +122,25 @@
           .then((response) => {
             if (response.ok) {
               return response.blob();
-            } else {
-              alert("Ocorreu um erro");
             }
           })
           .then((blob) => {
-            // Criar uma URL temporária para o objeto Blob
-            var url = URL.createObjectURL(blob);
-            console.log(blob);
+            if (blob) {
+              var url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = window.URL.createObjectURL(blob);
+              link.download = `${formData.id}-${formData.capInicio}-${formData.capFim}.pdf`;
+              link.click();
+            }
 
-            // Abrir a URL em uma nova aba
-            var novaAba = window.open(url, "_blank");
+            btnBaixar.disabled = false;
+            btnBaixar.value = "Baixar";
           })
           .catch((error) => {
             alert("Ocorreu um erro");
             console.error(error);
+            btnBaixar.disabled = false;
+            btnBaixar.value = "Baixar";
           });
       }
     </script>

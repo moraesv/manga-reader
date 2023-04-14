@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/png"
 	"io"
 	"io/ioutil"
 	"manga-reader/models"
@@ -271,6 +272,29 @@ func (m *MangaHandler) addImageToPDF(pdf *gofpdf.Fpdf, imagePath string, imageTy
 		})
 		if err != nil {
 			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF jpeg.Decode: %s Error: %s", imagePath, err.Error()), nil)
+			return nil
+		}
+
+		err = fileCheck.Close()
+		if err != nil {
+			message := fmt.Sprintf("Erro ao fechar imagem no diretório: %s", err.Error())
+			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF imagePath: %s Error: %s", imagePath, message), nil)
+			return err
+		}
+	}
+
+	if imageType == "png" {
+		fileCheck, err := os.Open(imagePath)
+		if err != nil {
+			message := fmt.Sprintf("Erro ao abrir imagem no diretório: %s", err.Error())
+			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF imagePath: %s Error: %s", imagePath, message), nil)
+			return err
+		}
+		defer fileCheck.Close()
+
+		_, err = png.Decode(fileCheck)
+		if err != nil {
+			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF png.Decode: %s Error: %s", imagePath, err.Error()), nil)
 			return nil
 		}
 
