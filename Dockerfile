@@ -9,5 +9,5 @@ RUN mkdir /app
 ADD . /app
 WORKDIR /app
 RUN go build -o main .
-EXPOSE 5001
+EXPOSE 9003
 CMD ["/app/main"]

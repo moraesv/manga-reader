@@ -50,7 +50,7 @@ func (s *Server) IniciaServidor() {
 
 	Port, _ := strconv.Atoi(vars.PORT)
 	if Port == 0 {
-		Port = 5000
+		Port = 9003
 	}
 
 	httpServer := &http.Server{

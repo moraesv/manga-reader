@@ -11,4 +11,4 @@ Para gerar a imagem é preciso acessar a pasta raiz do projeto e executar o coma
 `docker build -f Dockerfile -t manga-reader .`
 
 Para executar o container:
-`docker run --env-file .env -p 5001:5001 --name manga-reader manga-reader`
+`docker run --env-file .env -p 9003:9003 --name manga-reader manga-reader`

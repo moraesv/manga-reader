@@ -420,15 +420,11 @@ func (m *MangaHandler) TestaConexao() error {
 	req.Header.Set("Sec-Fetch-User", `?1`)
 	req.Header.Set("Upgrade-Insecure-Requests", `1`)
 	req.Header.Set("User-Agent", `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36`)
-	req.Header.Set("Connection", `keep-alive`)
-	req.Header.Set("Cache-Control", `max-age=0`)
+
 	res, err := client.Do(req)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Erro ao request URL: %s Error: %s", url, err.Error()))
 	}
-
-	fmt.Println(res.Request.Header)
-	fmt.Println(res.Header)
 
 	if res.StatusCode != http.StatusOK {
 		return errors.New(fmt.Sprintf("Erro ao acessar a URL: %s\n", res.Status))
