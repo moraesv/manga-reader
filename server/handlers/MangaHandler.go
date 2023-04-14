@@ -441,7 +441,7 @@ func (m *MangaHandler) TestaConexao() error {
 
 	// Ignora as regras de segurança do Cloudflare
 	c.OnResponse(func(r *colly.Response) {
-		if r.StatusCode == 403 {
+		if r.StatusCode == 503 {
 			fmt.Println(r.Body)
 			r.Request.Retry()
 		}
