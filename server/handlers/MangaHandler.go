@@ -21,6 +21,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/chromedp/chromedp"
 	"github.com/chromedp/chromedp/kb"
+	"github.com/gocolly/colly"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/jung-kurt/gofpdf"
@@ -403,38 +404,54 @@ func (m *MangaHandler) TestaConexao() error {
 	m.uLogger.LogIt("DEBUG", fmt.Sprintf("Teste Conexão URL: %s", m.vars.MANGA_URL), nil)
 	url := m.vars.MANGA_URL
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Erro ao criar request URL: %s Error: %s", url, err.Error()))
-	}
-	req.Header.Set("Connection", `keep-alive`)
-	req.Header.Set("Cache-Control", `max-age=0`)
-	req.Header.Set("sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"`)
-	req.Header.Set("sec-ch-ua-mobile", `?0`)
-	req.Header.Set("sec-ch-ua-platform", `macOS`)
-	req.Header.Set("Upgrade-Insecure-Requests", `1`)
-	req.Header.Set("User-Agent", `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.83 Safari/537.36`)
-	req.Header.Set("Accept", `text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9`)
-	req.Header.Set("Sec-Fetch-Site", `none`)
-	req.Header.Set("Sec-Fetch-Mode", `navigate`)
-	req.Header.Set("Sec-Fetch-User", `?1`)
-	req.Header.Set("Sec-Fetch-Dest", `document`)
-	req.Header.Set("Accept-Encoding", `gzip, deflate, br`)
-	req.Header.Set("Accept-Language", `pt-BR`)
-	res, err := client.Do(req)
+	// client := &http.Client{}
+	// req, err := http.NewRequest("GET", url, nil)
+	// if err != nil {
+	// 	return errors.New(fmt.Sprintf("Erro ao criar request URL: %s Error: %s", url, err.Error()))
+	// }
+	// req.Header.Set("Connection", `keep-alive`)
+	// req.Header.Set("Cache-Control", `max-age=0`)
+	// req.Header.Set("sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"`)
+	// req.Header.Set("sec-ch-ua-mobile", `?0`)
+	// req.Header.Set("sec-ch-ua-platform", `macOS`)
+	// req.Header.Set("Upgrade-Insecure-Requests", `1`)
+	// req.Header.Set("User-Agent", `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.83 Safari/537.36`)
+	// req.Header.Set("Accept", `text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9`)
+	// req.Header.Set("Sec-Fetch-Site", `none`)
+	// req.Header.Set("Sec-Fetch-Mode", `navigate`)
+	// req.Header.Set("Sec-Fetch-User", `?1`)
+	// req.Header.Set("Sec-Fetch-Dest", `document`)
+	// req.Header.Set("Accept-Encoding", `gzip, deflate, br`)
+	// req.Header.Set("Accept-Language", `pt-BR`)
+	// res, err := client.Do(req)
+	// if err != nil {
+	// 	return errors.New(fmt.Sprintf("Erro ao request URL: %s Error: %s", url, err.Error()))
+	// }
+
+	// fmt.Println(res.Request.Header)
+	// fmt.Println(res.Header)
+
+	// if res.StatusCode != http.StatusOK {
+	// 	return errors.New(fmt.Sprintf("Erro ao acessar a URL: %s\n", res.Status))
+	// }
+
+	c := colly.NewCollector(
+		colly.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"),
+	)
+
+	// Ignora as regras de segurança do Cloudflare
+	c.OnResponse(func(r *colly.Response) {
+		if r.StatusCode == 503 && string(r.Body) == "blocked by CloudFront" {
+			r.Request.Retry()
+		}
+	})
+
+	// Visita a página inicial do site
+	err := c.Visit(url)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Erro ao request URL: %s Error: %s", url, err.Error()))
 	}
-
-	fmt.Println(res.Request.Header)
-	fmt.Println(res.Header)
-
-	if res.StatusCode != http.StatusOK {
-		return errors.New(fmt.Sprintf("Erro ao acessar a URL: %s\n", res.Status))
-	}
-
-	m.uLogger.LogIt("DEBUG", fmt.Sprintf("Teste Conexão URL: %s Status: %s", url, res.Status), nil)
+	//m.uLogger.LogIt("DEBUG", fmt.Sprintf("Teste Conexão URL: %s Status: %s", url, res.Status), nil)
 
 	return nil
 }
