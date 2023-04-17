@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"image"
 	"image/png"
 	"io"
 	"io/ioutil"
@@ -110,97 +109,14 @@ func (m *MangaHandler) GerarManga(uuidManga string, uris []string) (*gofpdf.Fpdf
 
 	m.uLogger.LogIt("DEBUG", "Iniciado Gerar Manga ID: "+uuidManga, nil)
 
-	count := 0
+	c := make(chan bool, len(uris))
 
-	for _, uri := range uris {
-		m.uLogger.LogIt("DEBUG", fmt.Sprintf("Iniciado Gerar Manga ID: %s Capítulo %s", uuidManga, uri), nil)
+	for index, uri := range uris {
+		go m.BuscarImagensCap(uuidManga, uri, index+1, c)
+	}
 
-		// URL da página web que queremos acessar
-		url := m.vars.MANGA_URL + uri
-
-		// Cria um contexto de execução para o navegador Chrome headless
-		ctx, cancel := chromedp.NewContext(context.Background())
-		defer cancel()
-
-		// Navega até a página web e espera carregar totalmente
-		var html string
-		err := chromedp.Run(ctx, chromedp.Tasks{
-			chromedp.Navigate(url),
-			chromedp.Location(&url),
-			chromedp.WaitVisible("div.reader-content div.manga-image img", chromedp.ByQuery),
-			chromedp.InnerHTML("html", &html),
-		})
-		if err != nil {
-			message := fmt.Sprintf("Erro ao navegar até a página web: %s", err.Error())
-			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-			return nil, err
-		}
-
-		// Clica na div "page-next" e baixa a próxima imagem até que não exista mais uma imagem na tela
-		for {
-			// Faz o download da imagem
-			document, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-			if err != nil {
-				message := fmt.Sprintf("Erro ao parsear o HTML da página: %s", err.Error())
-				m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-				return nil, err
-			}
-			imageURL, _ := document.Find("div.reader-content div.manga-image img").First().Attr("src")
-
-			if imageURL != "" {
-				count += 1
-				imageName := strings.Split(imageURL, "/")
-				filename := fmt.Sprintf("%d%s", count, filepath.Ext(imageName[len(imageName)-1]))
-				file, err := os.Create("./mangas/" + uuidManga + "/" + filename)
-				if err != nil {
-					message := fmt.Sprintf("Erro ao criar o arquivo: %s", err.Error())
-					m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-					return nil, err
-				}
-				defer file.Close()
-
-				response, err := http.Get(imageURL)
-				if err != nil {
-					message := fmt.Sprintf("Erro ao realizar o download da imagem: %s", err.Error())
-					m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-					return nil, err
-				}
-				defer response.Body.Close()
-
-				_, err = io.Copy(file, response.Body)
-				if err != nil {
-					message := fmt.Sprintf("Erro ao copiar o conteúdo da imagem para o arquivo:%s", err.Error())
-					m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-					return nil, err
-				}
-			}
-
-			// Clica na div "page-next" para baixar a próxima imagem
-			err = chromedp.Run(ctx, chromedp.Tasks{
-				chromedp.WaitVisible("div.page-next", chromedp.ByQuery),
-				chromedp.Click("div.page-next", chromedp.ByQuery),
-				chromedp.Location(&url),
-				chromedp.InnerHTML("html", &html),
-			})
-			if err != nil {
-				message := fmt.Sprintf("Erro ao clicar na div 'page-next': %s", err.Error())
-				m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-				return nil, err
-			}
-
-			// Verifica se é mesma imagem
-			document, err = goquery.NewDocumentFromReader(strings.NewReader(html))
-			if err != nil {
-				message := fmt.Sprintf("Erro ao parsear o HTML da página: %s", err.Error())
-				m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
-				return nil, err
-			}
-			imageNextURL, _ := document.Find("div.reader-content div.manga-image img").First().Attr("src")
-
-			if imageURL == imageNextURL {
-				break
-			}
-		}
+	for range uris {
+		<-c
 	}
 
 	pdf, err := m.GerarPDF(uuidManga)
@@ -208,8 +124,103 @@ func (m *MangaHandler) GerarManga(uuidManga string, uris []string) (*gofpdf.Fpdf
 	return pdf, err
 }
 
-func (m *MangaHandler) GerarPDF(uuidManga string) (*gofpdf.Fpdf, error) {
+func (m *MangaHandler) BuscarImagensCap(uuidManga string, uri string, index int, c chan (bool)) (*gofpdf.Fpdf, error) {
+	count := 0
+	m.uLogger.LogIt("DEBUG", fmt.Sprintf("Iniciado Gerar Manga ID: %s Capítulo %s", uuidManga, uri), nil)
 
+	// URL da página web que queremos acessar
+	url := m.vars.MANGA_URL + uri
+
+	// Cria um contexto de execução para o navegador Chrome headless
+	ctx, cancel := chromedp.NewContext(context.Background())
+	defer cancel()
+
+	// Navega até a página web e espera carregar totalmente
+	var html string
+	err := chromedp.Run(ctx, chromedp.Tasks{
+		chromedp.Navigate(url),
+		chromedp.Location(&url),
+		chromedp.WaitVisible("div.reader-content div.manga-image img", chromedp.ByQuery),
+		chromedp.InnerHTML("html", &html),
+	})
+	if err != nil {
+		message := fmt.Sprintf("Erro ao navegar até a página web: %s", err.Error())
+		m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+		return nil, err
+	}
+
+	// Clica na div "page-next" e baixa a próxima imagem até que não exista mais uma imagem na tela
+	for {
+		// Faz o download da imagem
+		document, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+		if err != nil {
+			message := fmt.Sprintf("Erro ao parsear o HTML da página: %s", err.Error())
+			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+			return nil, err
+		}
+		imageURL, _ := document.Find("div.reader-content div.manga-image img").First().Attr("src")
+
+		if imageURL != "" {
+			count += 1
+			imageName := strings.Split(imageURL, "/")
+			filename := fmt.Sprintf("%d.%d%s", index, count, filepath.Ext(imageName[len(imageName)-1]))
+			file, err := os.Create("./mangas/" + uuidManga + "/" + filename)
+			if err != nil {
+				message := fmt.Sprintf("Erro ao criar o arquivo: %s", err.Error())
+				m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+				return nil, err
+			}
+			defer file.Close()
+
+			response, err := http.Get(imageURL)
+			if err != nil {
+				message := fmt.Sprintf("Erro ao realizar o download da imagem: %s", err.Error())
+				m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+				return nil, err
+			}
+			defer response.Body.Close()
+
+			_, err = io.Copy(file, response.Body)
+			if err != nil {
+				message := fmt.Sprintf("Erro ao copiar o conteúdo da imagem para o arquivo:%s", err.Error())
+				m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+				return nil, err
+			}
+		}
+
+		// Clica na div "page-next" para baixar a próxima imagem
+		err = chromedp.Run(ctx, chromedp.Tasks{
+			chromedp.WaitVisible("div.page-next", chromedp.ByQuery),
+			chromedp.Click("div.page-next", chromedp.ByQuery),
+			chromedp.Location(&url),
+			chromedp.InnerHTML("html", &html),
+		})
+		if err != nil {
+			message := fmt.Sprintf("Erro ao clicar na div 'page-next': %s", err.Error())
+			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+			return nil, err
+		}
+
+		// Verifica se é mesma imagem
+		document, err = goquery.NewDocumentFromReader(strings.NewReader(html))
+		if err != nil {
+			message := fmt.Sprintf("Erro ao parsear o HTML da página: %s", err.Error())
+			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao Gerar Manga ID: %s Error: %s", uuidManga, message), nil)
+			return nil, err
+		}
+		imageNextURL, _ := document.Find("div.reader-content div.manga-image img").First().Attr("src")
+
+		if imageURL == imageNextURL {
+			break
+		}
+	}
+
+	c <- true
+
+	return nil, err
+}
+
+func (m *MangaHandler) GerarPDF(uuidManga string) (*gofpdf.Fpdf, error) {
 	m.uLogger.LogIt("DEBUG", "Iniciado Gerar PDF ID: "+uuidManga, nil)
 	// Cria um novo PDF com orientação "P" (retrato)
 	pdf := gofpdf.New("P", "mm", "A4", "")
@@ -222,23 +233,48 @@ func (m *MangaHandler) GerarPDF(uuidManga string) (*gofpdf.Fpdf, error) {
 		return pdf, err
 	}
 
-	// Ordena os arquivos por ordem numérica crescente
-	sort.Slice(files, func(i, j int) bool {
-		fileA := files[i]
-		fileB := files[j]
-		baseA := filepath.Base(fileA.Name())
-		baseB := filepath.Base(fileB.Name())
-		extA := filepath.Ext(baseA)
-		extB := filepath.Ext(baseB)
-		numA, _ := strconv.Atoi(strings.TrimSuffix(baseA, extA))
-		numB, _ := strconv.Atoi(strings.TrimSuffix(baseB, extB))
-		return numA < numB
+	type file struct {
+		name     string
+		order    int
+		sequence int
+	}
+
+	// Criar uma estrutura de dados para armazenar o nome do arquivo, o número antes do ponto e o número após o ponto
+	fileList := make([]file, len(files))
+
+	// Percorrer a lista de arquivos e extrair o número antes e após o ponto
+	for i, f := range files {
+		// Separar o nome do arquivo pelo ponto
+		nameSplit := strings.Split(f.Name(), ".")
+
+		// Extrair o número antes do ponto
+		order := 0
+		if len(nameSplit) > 1 {
+			order, _ = strconv.Atoi(nameSplit[0])
+		}
+
+		// Extrair o número após o ponto
+		sequence := 0
+		if len(nameSplit) > 2 {
+			sequence, _ = strconv.Atoi(nameSplit[1])
+		}
+
+		// Adicionar o nome do arquivo, o número antes do ponto e o número após o ponto na estrutura de dados
+		fileList[i] = file{name: f.Name(), order: order, sequence: sequence}
+	}
+
+	// Ordenar a estrutura de dados baseada no número antes do ponto e, em seguida, no número após o ponto
+	sort.Slice(fileList, func(i, j int) bool {
+		if fileList[i].order == fileList[j].order {
+			return fileList[i].sequence < fileList[j].sequence
+		}
+		return fileList[i].order < fileList[j].order
 	})
 
 	// Percorre todos os arquivos e adiciona cada imagem ao PDF
-	for _, file := range files {
-		if filepath.Ext(file.Name()) == ".jpg" || filepath.Ext(file.Name()) == ".png" {
-			m.addImageToPDF(pdf, "./mangas/"+uuidManga+"/"+file.Name(), strings.Replace(filepath.Ext(file.Name()), ".", "", 1))
+	for _, file := range fileList {
+		if filepath.Ext(file.name) == ".jpg" || filepath.Ext(file.name) == ".png" {
+			m.addImageToPDF(pdf, "./mangas/"+uuidManga+"/"+file.name, strings.Replace(filepath.Ext(file.name), ".", "", 1))
 		}
 	}
 
@@ -267,9 +303,7 @@ func (m *MangaHandler) addImageToPDF(pdf *gofpdf.Fpdf, imagePath string, imageTy
 		defer fileCheck.Close()
 
 		// Decode the image file using "go-libjpeg/jpeg"
-		_, err = jpeg.Decode(fileCheck, &jpeg.DecoderOptions{
-			ScaleTarget: image.Rect(0, 0, 800, 800),
-		})
+		_, err = jpeg.Decode(fileCheck, &jpeg.DecoderOptions{})
 		if err != nil {
 			m.uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao addImageToPDF jpeg.Decode: %s Error: %s", imagePath, err.Error()), nil)
 			return nil

@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/joho/godotenv v1.5.1
+	golang.ngrok.com/ngrok v1.0.0
 )
 
 require (
@@ -15,7 +16,6 @@ require (
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
-	golang.ngrok.com/ngrok v1.0.0 // indirect
 	golang.org/x/term v0.5.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 )

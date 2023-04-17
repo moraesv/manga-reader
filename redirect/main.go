@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"manga-reader/utils"
@@ -44,16 +45,25 @@ func handleURL(w http.ResponseWriter, r *http.Request) {
 func handleRedirect(w http.ResponseWriter, r *http.Request) {
 	ngrokURLBytes, err := ioutil.ReadFile("ngrok-url.txt")
 	if err != nil {
-		fmt.Fprintf(w, "Nenhuma URL do servidor salva ainda.")
+		fmt.Fprintf(w, "Nenhuma URL do ngrok salva ainda.")
 		return
 	}
 	ngrokURL := string(ngrokURLBytes)
 
 	resp, err := http.Get(ngrokURL)
 	if err != nil || resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(w, "Servidor desligado.")
+		fmt.Fprintf(w, "Servidor do ngrok desligado.")
 		return
 	}
 
-	http.Redirect(w, r, ngrokURL, http.StatusTemporaryRedirect)
+	resp, err = http.Get(ngrokURL)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		fmt.Fprintf(w, "Erro ao buscar conteúdo do ngrok.")
+		return
+	}
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }
