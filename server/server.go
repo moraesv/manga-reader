@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -64,30 +65,30 @@ func (s *Server) IniciaServidor() {
 
 	SalvaNovaURL(vars.URL_REDIRECT_FULL, vars.URL)
 
-	log.Printf("Utilizando: %s", vars.MANGA_URL)
-
-	log.Printf("Iniciando servidor: %s", vars.URL)
+	uLogger.LogIt("INFO", fmt.Sprintf("Utilizando: %s", vars.MANGA_URL), nil)
+	uLogger.LogIt("INFO", fmt.Sprintf("Iniciando servidor: %s", vars.URL), nil)
 
 	http.Serve(tun, handlers.RecoveryHandler()(c.Handler(router)))
 }
 
 func SalvaNovaURL(urlRedirect, urlNgrok string) {
+	uLogger := utils.NewGenericLogger()
 	url := urlRedirect + "/url"
 	body := []byte(urlNgrok)
 
 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(body))
 	if err != nil {
-		log.Printf("Erro ao criar a requisição: %s", err.Error())
+		uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao criar a requisição: %s", err.Error()), nil)
 		return
 	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("Erro ao enviar a requisição: %s", err.Error())
+		uLogger.LogIt("ERROR", fmt.Sprintf("Erro ao enviar a requisição: %s", err.Error()), nil)
 		return
 	}
 	defer resp.Body.Close()
 
-	log.Printf("Resposta do servidor: %s", resp.Status)
+	uLogger.LogIt("INFO", fmt.Sprintf("Resposta do servidor: %s", resp.Status), nil)
 }
